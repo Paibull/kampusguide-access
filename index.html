@@ -82,24 +82,31 @@
   .page-sos .ring{border-color:rgba(255,255,255,.45);border-width:3px}
   .sostext{font-size:var(--hero);font-weight:600;letter-spacing:-.01em}
 
-  /* Favorit page */
-  .page-fav{justify-content:flex-start;padding-top:6px;overflow-y:auto;scrollbar-width:none}
-  .page-fav::-webkit-scrollbar{display:none}
-  .favhead{align-self:stretch;text-align:left;padding:4px 2px 8px}
-  .favhead h1{font-size:var(--hero);font-weight:600;letter-spacing:-.02em}
-  .favhead p{font-size:var(--fine);opacity:.6;margin-top:2px}
-  .favlist{align-self:stretch;display:flex;flex-direction:column;gap:12px;padding-bottom:14px}
-  .tile{
-    border:2px solid transparent;background:var(--tile);color:inherit;font:inherit;text-align:left;cursor:pointer;
-    border-radius:20px;padding:16px 20px;min-height:74px;display:flex;justify-content:space-between;align-items:center;gap:12px;
+  /* Favorit page — vertical card carousel */
+  .page-fav{padding:0;overflow:hidden;justify-content:flex-start}
+  .favscroll{
+    width:100%;height:100%;
+    overflow-y:scroll;overflow-x:hidden;
+    scroll-snap-type:y mandatory;
+    scrollbar-width:none;
+    scroll-padding-top:16px;
   }
-  .tile:focus-visible{border-color:rgba(255,255,255,.7);outline:none}
-  .tile{transition:transform .12s var(--ease),border-color .2s}
-  .tile:active{transform:scale(.985)}
-  .tile .ti{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
-  .tile .n{font-size:var(--btn);font-weight:600;line-height:1.15}
-  .tile .d{font-size:var(--fine);opacity:.62;line-height:1.3}
-  .tile .dist{font-size:var(--fine);color:var(--warn);font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .favscroll::-webkit-scrollbar{display:none}
+  .favcard{
+    width:calc(100% - 32px);height:calc(100% - 56px);
+    margin:16px 16px 0;flex-shrink:0;
+    scroll-snap-align:start;scroll-snap-stop:always;
+    background:var(--tile);border-radius:28px;
+    border:none;color:inherit;font:inherit;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:14px;padding:32px 28px;outline:none;
+  }
+  .favcard:focus-visible{box-shadow:0 0 0 3px rgba(255,255,255,.5)}
+  .favcard:active{opacity:.8;transition:opacity .1s}
+  .fc-num{font-size:var(--fine);opacity:.4;letter-spacing:.06em}
+  .fc-name{font-size:clamp(28px,8vw,36px);font-weight:700;letter-spacing:-.02em;text-align:center;line-height:1.1;text-wrap:balance}
+  .fc-dist{font-size:var(--lead);color:var(--warn);font-weight:600}
+  .fc-hint{font-size:var(--fine);opacity:.45;margin-top:8px}
 
   /* Pager chrome */
   .pagerbar{
@@ -182,9 +189,8 @@
 
   <main class="pager" id="pager" aria-label="Halaman utama. Geser kiri untuk Favorit, geser kanan untuk SOS.">
 
-    <section class="page page-fav" id="page-fav" aria-label="Halaman Favorit">
-      <div class="favhead"><h1>Favorit</h1><p id="favsub"></p></div>
-      <div class="favlist" id="favlist"></div>
+    <section class="page page-fav" id="page-fav" aria-label="Halaman Lokasi Favorit">
+      <div class="favscroll" id="favscroll"></div>
     </section>
 
     <section class="page page-suara" id="page-suara" aria-label="Halaman Input Suara">
@@ -311,7 +317,7 @@
     const w=pager.clientWidth||1; const i=Math.round(pager.scrollLeft/w);
     $('dots').querySelectorAll('.dot').forEach((d,k)=>d.classList.toggle('on',k===i));
     clearTimeout(annTimer);
-    annTimer=setTimeout(()=>{ if(i!==lastAnnPage){ lastAnnPage=i; speak(PAGE_SAYS[i]||'',{interrupt:true}); } },300);
+    annTimer=setTimeout(()=>{ if(i!==lastAnnPage){ lastAnnPage=i; speak(PAGE_SAYS[i]||'',{interrupt:true}); if(i===0) announceFavCard(); } },300);
   }
   pager.addEventListener('scroll',()=>{ requestAnimationFrame(syncDots); },{passive:true});
   function goPage(i){ const p=pager.children[i]; pager.scrollTo({left:p?p.offsetLeft:pager.clientWidth*i,behavior:'smooth'}); }
@@ -326,17 +332,34 @@
   window.addEventListener('load',()=>{ landOnSuara(); requestAnimationFrame(landOnSuara); applyHash(); });
   window.addEventListener('resize',()=>{ syncDots(); });
 
-  /* ---------- Favorit list ---------- */
+  /* ---------- Favorit cards ---------- */
+  function announceFavCard(){
+    const sc=$('favscroll'); if(!sc||!sc.children.length) return;
+    const ctr=sc.scrollTop+sc.clientHeight/2;
+    let best=0,bestD=Infinity;
+    [...sc.children].forEach((c,i)=>{ const d=Math.abs(c.offsetTop+c.offsetHeight/2-ctr); if(d<bestD){bestD=d;best=i;} });
+    if(PLACES[best]) speak(`${PLACES[best].name}. Jarak ${PLACES[best].dist}.`,{interrupt:false});
+  }
   function renderFav(){
-    $('favlist').innerHTML='';
-    PLACES.forEach(p=>{
+    const sc=$('favscroll'); sc.innerHTML='';
+    let lastFavIdx=-1, favAnnTimer=null;
+    PLACES.forEach((p,i)=>{
       const b=document.createElement('button');
-      b.className='tile';
+      b.className='favcard';
       b.setAttribute('aria-label',`${p.name}. Jarak ${p.dist}. Ketuk dua kali untuk memulai rute.`);
-      b.innerHTML=`<span class="ti"><span class="n">${p.name}</span></span><span class="dist">${p.dist}</span>`;
+      b.innerHTML=`<span class="fc-num">${i+1} / ${PLACES.length}</span><span class="fc-name">${p.name}</span><span class="fc-dist">${p.dist}</span><span class="fc-hint">Ketuk dua kali untuk mulai rute</span>`;
       activatable(b,()=>startGuide(p));
-      $('favlist').appendChild(b);
+      sc.appendChild(b);
     });
+    sc.addEventListener('scroll',()=>{
+      clearTimeout(favAnnTimer);
+      favAnnTimer=setTimeout(()=>{
+        const ctr=sc.scrollTop+sc.clientHeight/2;
+        let best=0,bestD=Infinity;
+        [...sc.children].forEach((c,k)=>{ const d=Math.abs(c.offsetTop+c.offsetHeight/2-ctr); if(d<bestD){bestD=d;best=k;} });
+        if(best!==lastFavIdx){ lastFavIdx=best; if(PLACES[best]) speak(`${PLACES[best].name}. Jarak ${PLACES[best].dist}.`); }
+      },300);
+    },{passive:true});
   }
 
   /* ---------- Voice (F1) ---------- */
