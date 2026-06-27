@@ -47,7 +47,7 @@
   }
   .pager::-webkit-scrollbar{display:none}
   .page{
-    flex:0 0 100%;width:100%;height:100%;scroll-snap-align:center;scroll-snap-stop:always;
+    flex:0 0 100%;width:100%;height:100%;scroll-snap-align:start;scroll-snap-stop:always;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
     padding:8px 24px 0;position:relative;
   }
@@ -103,11 +103,9 @@
 
   /* Pager chrome */
   .pagerbar{
-    flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;z-index:5;
+    flex:0 0 auto;display:flex;justify-content:center;align-items:center;z-index:5;
     padding:10px 26px max(24px,env(safe-area-inset-bottom));font-size:var(--fine);
   }
-  .pagerbar .swipe{opacity:.75}
-  .pagerbar .swipe.sos{color:#ffd1cd;font-weight:600}
   .dots{display:flex;gap:8px;align-items:center}
   .dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.3);transition:all .3s var(--ease)}
   .dot.on{width:28px;border-radius:5px;background:#fff}
@@ -212,9 +210,7 @@
   </main>
 
   <nav class="pagerbar" aria-hidden="true">
-    <span class="swipe" id="swL">‹ Favorit</span>
     <span class="dots" id="dots"><i class="dot"></i><i class="dot on"></i><i class="dot"></i></span>
-    <span class="swipe sos" id="swR">SOS ›</span>
   </nav>
 
   <!-- Listening overlay -->
@@ -263,7 +259,7 @@
   /* ---------- Data: gedung ITS ---------- */
   // jarak = acuan dari Asrama Mahasiswa (titik Anda), urut terdekat
   const PLACES=[
-    {id:'asrama',  name:'Asrama Mahasiswa',        dist:'Di sini', kw:['asrama','hunian','dormitory']},
+    {id:'asrama',  name:'Asrama Mahasiswa',        dist:'0 m',     kw:['asrama','hunian','dormitory']},
     {id:'informatika',name:'Teknik Informatika',  dist:'± 280 m', kw:['informatika','teknik informatika','if','ti','komputer']},
     {id:'tower1',  name:'Tower 1',                 dist:'± 400 m', kw:['tower satu','tower 1','menara mipa','mipa']},
     {id:'tower2',  name:'Tower 2',                 dist:'± 450 m', kw:['tower dua','tower 2']},
@@ -327,18 +323,15 @@
   pager.addEventListener('scroll',()=>{ requestAnimationFrame(syncDots); },{passive:true});
   function goPage(i){ const p=pager.children[i]; pager.scrollTo({left:p?p.offsetLeft:pager.clientWidth*i,behavior:'smooth'}); }
   // mulai di tengah (Input Suara) tanpa animasi geser; offsetLeft presisi agar tak ada sliver page lain
-  function landOnSuara(){ pager.scrollLeft=$('page-suara').offsetLeft; syncDots(); }
+  function landOnSuara(){ pager.scrollLeft=Math.round($('page-suara').offsetLeft); syncDots(); }
   // ?#fav/#sos/#listen/#guide/#calling untuk deep-link & uji
   function applyHash(){ const h=location.hash.slice(1);
     if(h==='fav') goPage(0); else if(h==='sos') goPage(2);
     else if(h==='listen') startListening(); else if(h==='calling') startSOS();
     else if(h==='guide') startGuide(PLACES.find(p=>p.id==='perpus')); }
   landOnSuara();                                              // sinkron, sebelum paint pertama
-  window.addEventListener('load',()=>{ landOnSuara(); applyHash(); });
+  window.addEventListener('load',()=>{ landOnSuara(); requestAnimationFrame(landOnSuara); applyHash(); });
   window.addEventListener('resize',()=>{ syncDots(); });
-  // tap swipe labels
-  $('swL').addEventListener('click',()=>goPage(0));
-  $('swR').addEventListener('click',()=>goPage(2));
 
   /* ---------- Favorit list ---------- */
   function renderFav(){
@@ -347,7 +340,7 @@
     PLACES.forEach(p=>{
       const b=document.createElement('button');
       b.className='tile';
-      b.setAttribute('aria-label',`${p.name}. ${p.dist.startsWith('±')?'Jarak '+p.dist:p.dist}. Ketuk dua kali untuk memulai rute.`);
+      b.setAttribute('aria-label',`${p.name}. Jarak ${p.dist}. Ketuk dua kali untuk memulai rute.`);
       b.innerHTML=`<span class="ti"><span class="n">${p.name}</span></span><span class="dist">${p.dist}</span>`;
       activatable(b,()=>startGuide(p));
       $('favlist').appendChild(b);
@@ -390,9 +383,9 @@
   /* ---------- Guide / turn-by-turn (F2 + F3 + F4) ---------- */
   function buildSteps(name){
     return [
-      {dir:'LURUS',dist:'15 METER',arrow:'↑',say:`Maju lurus 15 meter menuju ${name}`,h:H.straight,obstacle:'Perhatikan ada tangga turun di depan'},
-      {dir:'BELOK KANAN',dist:'8 METER',arrow:'↱',say:'Belok kanan di pertigaan selasar, lalu maju 8 meter',h:H.right},
-      {dir:'LURUS',dist:'20 METER',arrow:'↑',say:'Maju lurus 20 meter, lewati selasar kantin di kiri Anda',h:H.straight},
+      {dir:'LURUS',dist:'15 METER',arrow:'↑',say:`Jalan lurus 15 meter menuju ${name}`,h:H.straight,obstacle:'Hati-hati, ada tangga turun di depan'},
+      {dir:'BELOK KANAN',dist:'8 METER',arrow:'↱',say:'Belok kanan, lalu jalan lurus 8 meter',h:H.right},
+      {dir:'LURUS',dist:'20 METER',arrow:'↑',say:'Jalan lurus 20 meter, lewati kantin di sebelah kiri',h:H.straight},
       {dir:'TIBA',dist:'',arrow:'◎',say:`Anda tiba di ${name}`,h:H.arrive,arrive:true},
     ];
   }
