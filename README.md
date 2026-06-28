@@ -1,4 +1,4 @@
-# KampusGuide Access
+# Netravigasi
 
 Asisten navigasi suara untuk mahasiswa/pengunjung tunanetra & *low vision* di Kampus ITS.
 Web app (PWA) satu file, tanpa build. Implementasi langsung dari `docs/prd_imk.md`.
